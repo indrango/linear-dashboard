@@ -11,8 +11,13 @@ interface StatusChartProps {
 const COLORS = {
   Done: "#10b981",
   "In Review": "#3b82f6",
+  "In QA": "#a855f7",
+  "Ready to QA": "#14b8a6",
   "In Progress": "#f59e0b",
   Todo: "#6b7280",
+  Backlog: "#9ca3af",
+  Canceled: "#ef4444",
+  Duplicate: "#4b5563",
 };
 
 export default function StatusChart({ issues }: StatusChartProps) {
@@ -44,7 +49,7 @@ export default function StatusChart({ issues }: StatusChartProps) {
             cy="50%"
             labelLine={false}
             label={({ name, percent }) =>
-              `${name}: ${(percent * 100).toFixed(0)}%`
+              `${name}: ${((percent || 0) * 100).toFixed(0)}%`
             }
             outerRadius={80}
             fill="#8884d8"

@@ -37,6 +37,10 @@ export async function fetchLinearIssues(
           assignee {
             name
           }
+          state {
+            name
+            type
+          }
           cycle {
             name
             number
@@ -46,9 +50,11 @@ export async function fetchLinearIssues(
               updatedAt
               toState {
                 name
+                type
               }
               fromState {
                 name
+                type
               }
             }
           }
@@ -160,7 +166,7 @@ export async function getAllCycles(apiKey: string): Promise<string[]> {
     const cycles = data.data?.cycles;
     if (cycles) {
       allCycles.push(
-        ...cycles.nodes.map((cycle: LinearCycle) => 
+        ...cycles.nodes.map((cycle: LinearCycle) =>
           cycle.name || `Cycle ${cycle.number}`
         )
       );
@@ -172,6 +178,39 @@ export async function getAllCycles(apiKey: string): Promise<string[]> {
   }
 
   return Array.from(new Set(allCycles)).sort();
+}
+
+export async function getAllWorkflowStates(apiKey: string): Promise<string[]> {
+  const query = `
+    query WorkflowStates {
+      workflowStates {
+        nodes {
+          name
+        }
+      }
+    }
+  `;
+
+  const response = await fetch(LINEAR_API_URL, {
+    method: "POST",
+    headers: {
+      Authorization: apiKey,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ query }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Linear API error: ${response.statusText}`);
+  }
+
+  const data = await response.json();
+
+  if (data.errors) {
+    throw new Error(`GraphQL errors: ${JSON.stringify(data.errors)}`);
+  }
+
+  return Array.from(new Set(data.data.workflowStates.nodes.map((state: { name: string }) => state.name) as string[])).sort();
 }
 
 export function processLinearIssues(issues: LinearIssue[]): ProcessedIssue[] {
@@ -231,14 +270,8 @@ export function processLinearIssues(issues: LinearIssue[]): ProcessedIssue[] {
     }
 
     // Derive status
-    let status: "Todo" | "In Progress" | "In Review" | "Done" = "Todo";
-    if (inReviewToDoneTs) {
-      status = "Done";
-    } else if (inProgressToInReviewTs) {
-      status = "In Review";
-    } else if (backlogToInProgressTs) {
-      status = "In Progress";
-    }
+    const status = issue.state.name;
+    const status_type = issue.state.type;
 
     return {
       issue_id: issue.id,
@@ -248,6 +281,7 @@ export function processLinearIssues(issues: LinearIssue[]): ProcessedIssue[] {
       sprint: issue.cycle?.name || (issue.cycle?.number ? `Cycle ${issue.cycle.number}` : null),
       estimate_points: issue.estimate,
       status,
+      status_type,
       in_progress_to_in_review_days: inProgressToInReviewDays,
       in_review_to_done_days: inReviewToDoneDays,
       backlog_to_in_progress_timestamp: backlogToInProgressTs,

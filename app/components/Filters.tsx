@@ -10,6 +10,7 @@ interface FiltersProps {
   filters: FiltersType;
   onFiltersChange: (filters: FiltersType) => void;
   availableAssignees: string[];
+  availableStatuses: string[];
   availableCycles: (string | null)[];
 }
 
@@ -17,6 +18,7 @@ export default function Filters({
   filters,
   onFiltersChange,
   availableAssignees,
+  availableStatuses,
   availableCycles,
 }: FiltersProps) {
   const updateFilter = <K extends keyof FiltersType>(
@@ -66,7 +68,7 @@ export default function Filters({
         <label className="block text-sm font-medium text-gray-700 mb-1.5">
           {label}
         </label>
-        <Listbox value={selected} onChange={() => {}} multiple>
+        <Listbox value={selected} onChange={() => { }} multiple>
           {({ open }) => (
             <>
               <Listbox.Button
@@ -104,8 +106,8 @@ export default function Filters({
                         onClick={() => handleChange(option)}
                         className={cn(
                           "relative cursor-pointer select-none py-2 pl-3 pr-9",
-                          isSelected 
-                            ? "bg-blue-100 text-blue-900 border-l-2 border-blue-600" 
+                          isSelected
+                            ? "bg-blue-100 text-blue-900 border-l-2 border-blue-600"
                             : "text-gray-900 hover:bg-gray-50"
                         )}
                       >
@@ -142,7 +144,7 @@ export default function Filters({
     );
   };
 
-  const statusOptions = ["Todo", "In Progress", "In Review", "Done"];
+  const statusOptions = availableStatuses;
 
   return (
     <div className="space-y-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
@@ -242,13 +244,13 @@ export default function Filters({
         </div>
         {(filters.estimateRange.min !== null ||
           filters.estimateRange.max !== null) && (
-          <button
-            onClick={() => clearFilter("estimateRange")}
-            className="mt-1 text-xs text-blue-600 hover:text-blue-800"
-          >
-            Clear
-          </button>
-        )}
+            <button
+              onClick={() => clearFilter("estimateRange")}
+              className="mt-1 text-xs text-blue-600 hover:text-blue-800"
+            >
+              Clear
+            </button>
+          )}
       </div>
     </div>
   );

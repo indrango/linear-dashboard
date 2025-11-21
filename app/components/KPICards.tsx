@@ -10,7 +10,7 @@ interface KPICardsProps {
 export default function KPICards({ issues }: KPICardsProps) {
   const metrics = useMemo(() => {
     const totalIssues = issues.length;
-    const doneIssues = issues.filter((i) => i.status === "Done").length;
+    const doneIssues = issues.filter((i) => i.status_type === "completed").length;
     const completionRate = totalIssues > 0 ? (doneIssues / totalIssues) * 100 : 0;
 
     const inProgressToReviewDays = issues
@@ -19,7 +19,7 @@ export default function KPICards({ issues }: KPICardsProps) {
     const avgInProgressToReview =
       inProgressToReviewDays.length > 0
         ? inProgressToReviewDays.reduce((a, b) => a + b, 0) /
-          inProgressToReviewDays.length
+        inProgressToReviewDays.length
         : 0;
 
     const inReviewToDoneDays = issues
@@ -28,7 +28,7 @@ export default function KPICards({ issues }: KPICardsProps) {
     const avgInReviewToDone =
       inReviewToDoneDays.length > 0
         ? inReviewToDoneDays.reduce((a, b) => a + b, 0) /
-          inReviewToDoneDays.length
+        inReviewToDoneDays.length
         : 0;
 
     return {
@@ -61,7 +61,7 @@ export default function KPICards({ issues }: KPICardsProps) {
       <Card
         title="Completion Rate"
         value={`${metrics.completionRate}%`}
-        subtitle={`${issues.filter((i) => i.status === "Done").length} completed`}
+        subtitle={`${issues.filter((i) => i.status_type === "completed").length} completed`}
       />
       <Card
         title="Avg: In Progress → Review"

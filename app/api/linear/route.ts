@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAllLinearIssues, processLinearIssues, getAllCycles } from "@/app/lib/linear";
+import { getAllLinearIssues, processLinearIssues, getAllCycles, getAllWorkflowStates } from "@/app/lib/linear";
 
 export async function GET(request: NextRequest) {
   try {
@@ -12,11 +12,15 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Fetch all issues and cycles from Linear in parallel
-    const [issues, cycles] = await Promise.all([
+    // Fetch all issues, cycles, and workflow states from Linear in parallel
+    const [issues, cycles, workflowStates] = await Promise.all([
       getAllLinearIssues(apiKey),
       getAllCycles(apiKey).catch((err) => {
         console.error("Error fetching cycles:", err);
+        return [] as string[];
+      }),
+      getAllWorkflowStates(apiKey).catch((err) => {
+        console.error("Error fetching workflow states:", err);
         return [] as string[];
       }),
     ]);
@@ -49,6 +53,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       issues: processedIssues,
       availableCycles: allCycles,
+      availableStatuses: workflowStates,
     });
   } catch (error) {
     console.error("Error fetching Linear issues:", error);

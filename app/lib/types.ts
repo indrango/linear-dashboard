@@ -2,6 +2,7 @@
 
 export interface LinearState {
   name: string;
+  type: string;
 }
 
 export interface LinearHistoryEntry {
@@ -28,6 +29,7 @@ export interface LinearIssue {
   completedAt: string | null;
   estimate: number | null;
   assignee: LinearAssignee | null;
+  state: LinearState;
   cycle: LinearCycle | null;
   history: {
     nodes: LinearHistoryEntry[];
@@ -54,7 +56,8 @@ export interface ProcessedIssue {
   assignee: string;
   sprint: string | null;
   estimate_points: number | null;
-  status: "Todo" | "In Progress" | "In Review" | "Done";
+  status: string;
+  status_type: string;
   in_progress_to_in_review_days: number | null;
   in_review_to_done_days: number | null;
   backlog_to_in_progress_timestamp: string | null;

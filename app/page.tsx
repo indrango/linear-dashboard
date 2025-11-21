@@ -13,6 +13,7 @@ export default function Dashboard() {
   const [issues, setIssues] = useState<ProcessedIssue[]>([]);
   const [filteredIssues, setFilteredIssues] = useState<ProcessedIssue[]>([]);
   const [availableCycles, setAvailableCycles] = useState<string[]>([]);
+  const [availableStatuses, setAvailableStatuses] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<Filters>({
@@ -34,7 +35,8 @@ export default function Dashboard() {
           throw new Error(`Failed to fetch: ${response.statusText}`);
         }
         const data = await response.json();
-        
+
+        // Handle both old format (array) and new format (object with issues and availableCycles)
         // Handle both old format (array) and new format (object with issues and availableCycles)
         if (Array.isArray(data)) {
           // Backward compatibility: old format
@@ -44,11 +46,13 @@ export default function Dashboard() {
             data.map((i) => i.sprint).filter((s): s is string => s !== null)
           );
           setAvailableCycles(Array.from(cycles).sort());
+          setAvailableStatuses(["Todo", "In Progress", "In Review", "Done"]);
         } else {
-          // New format: object with issues and availableCycles
+          // New format: object with issues, availableCycles, and availableStatuses
           setIssues(data.issues || []);
           setFilteredIssues(data.issues || []);
           setAvailableCycles(data.availableCycles || []);
+          setAvailableStatuses(data.availableStatuses || []);
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to fetch issues");
@@ -178,6 +182,7 @@ export default function Dashboard() {
               filters={filters}
               onFiltersChange={setFilters}
               availableAssignees={availableAssignees}
+              availableStatuses={availableStatuses}
               availableCycles={availableCycles}
             />
           </div>
