@@ -12,6 +12,7 @@ import TimelineChart from "@/app/components/Charts/TimelineChart";
 export default function Dashboard() {
   const [issues, setIssues] = useState<ProcessedIssue[]>([]);
   const [filteredIssues, setFilteredIssues] = useState<ProcessedIssue[]>([]);
+  const [availableCycles, setAvailableCycles] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<Filters>({
@@ -33,8 +34,22 @@ export default function Dashboard() {
           throw new Error(`Failed to fetch: ${response.statusText}`);
         }
         const data = await response.json();
-        setIssues(data);
-        setFilteredIssues(data);
+        
+        // Handle both old format (array) and new format (object with issues and availableCycles)
+        if (Array.isArray(data)) {
+          // Backward compatibility: old format
+          setIssues(data);
+          setFilteredIssues(data);
+          const cycles = new Set(
+            data.map((i) => i.sprint).filter((s): s is string => s !== null)
+          );
+          setAvailableCycles(Array.from(cycles).sort());
+        } else {
+          // New format: object with issues and availableCycles
+          setIssues(data.issues || []);
+          setFilteredIssues(data.issues || []);
+          setAvailableCycles(data.availableCycles || []);
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to fetch issues");
       } finally {
@@ -51,13 +66,6 @@ export default function Dashboard() {
     return Array.from(assignees).sort();
   }, [issues]);
 
-  const availableSprints = useMemo(() => {
-    const sprints = new Set(
-      issues.map((i) => i.sprint).filter((s): s is string => s !== null)
-    );
-    return Array.from(sprints).sort();
-  }, [issues]);
-
   // Apply filters
   useEffect(() => {
     let filtered = [...issues];
@@ -72,7 +80,7 @@ export default function Dashboard() {
       filtered = filtered.filter((i) => filters.statuses.includes(i.status));
     }
 
-    // Filter by sprints
+    // Filter by cycles
     if (filters.sprints.length > 0) {
       filtered = filtered.filter(
         (i) => i.sprint && filters.sprints.includes(i.sprint)
@@ -170,7 +178,7 @@ export default function Dashboard() {
               filters={filters}
               onFiltersChange={setFilters}
               availableAssignees={availableAssignees}
-              availableSprints={availableSprints}
+              availableCycles={availableCycles}
             />
           </div>
 

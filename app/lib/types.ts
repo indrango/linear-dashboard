@@ -15,7 +15,8 @@ export interface LinearAssignee {
 }
 
 export interface LinearCycle {
-  name: string;
+  name: string | null;
+  number: number;
 }
 
 export interface LinearIssue {

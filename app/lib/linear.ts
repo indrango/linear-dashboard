@@ -1,4 +1,4 @@
-import { LinearIssue, ProcessedIssue } from "./types";
+import { LinearIssue, LinearCycle, ProcessedIssue } from "./types";
 
 const LINEAR_API_URL = "https://api.linear.app/graphql";
 
@@ -19,7 +19,7 @@ export async function fetchLinearIssues(
         first: 250
         after: $after
         filter: {
-          completedAt: { gte: "${dateFilter}" }
+          updatedAt: { gte: "${dateFilter}" }
         }
       ) {
         pageInfo {
@@ -39,6 +39,7 @@ export async function fetchLinearIssues(
           }
           cycle {
             name
+            number
           }
           history(first: 100) {
             nodes {
@@ -93,6 +94,84 @@ export async function getAllLinearIssues(apiKey: string): Promise<LinearIssue[]>
   }
 
   return allIssues;
+}
+
+export async function getAllCycles(apiKey: string): Promise<string[]> {
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+  const dateFilter = sixMonthsAgo.toISOString();
+
+  const query = `
+    query Cycles($after: String) {
+      cycles(
+        first: 100
+        after: $after
+        filter: {
+          endsAt: { gte: "${dateFilter}" }
+        }
+      ) {
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+        nodes {
+          id
+          name
+          number
+        }
+      }
+    }
+  `;
+
+  const allCycles: string[] = [];
+  let hasNext = true;
+  let after: string | null = null;
+
+  while (hasNext) {
+    const variables: { after?: string } = after ? { after } : {};
+
+    const response: Response = await fetch(LINEAR_API_URL, {
+      method: "POST",
+      headers: {
+        Authorization: apiKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ query, variables }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Linear API error: ${response.statusText}`);
+    }
+
+    const data: {
+      data?: {
+        cycles?: {
+          nodes: LinearCycle[];
+          pageInfo: { hasNextPage: boolean; endCursor: string | null };
+        };
+      };
+      errors?: unknown[];
+    } = await response.json();
+
+    if (data.errors) {
+      throw new Error(`GraphQL errors: ${JSON.stringify(data.errors)}`);
+    }
+
+    const cycles = data.data?.cycles;
+    if (cycles) {
+      allCycles.push(
+        ...cycles.nodes.map((cycle: LinearCycle) => 
+          cycle.name || `Cycle ${cycle.number}`
+        )
+      );
+      hasNext = cycles.pageInfo.hasNextPage;
+      after = cycles.pageInfo.endCursor;
+    } else {
+      hasNext = false;
+    }
+  }
+
+  return Array.from(new Set(allCycles)).sort();
 }
 
 export function processLinearIssues(issues: LinearIssue[]): ProcessedIssue[] {
@@ -166,7 +245,7 @@ export function processLinearIssues(issues: LinearIssue[]): ProcessedIssue[] {
       issue_number: issue.number,
       issue_title: issue.title,
       assignee: issue.assignee?.name || "Unassigned",
-      sprint: issue.cycle?.name || null,
+      sprint: issue.cycle?.name || (issue.cycle?.number ? `Cycle ${issue.cycle.number}` : null),
       estimate_points: issue.estimate,
       status,
       in_progress_to_in_review_days: inProgressToInReviewDays,

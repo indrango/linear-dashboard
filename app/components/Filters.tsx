@@ -10,14 +10,14 @@ interface FiltersProps {
   filters: FiltersType;
   onFiltersChange: (filters: FiltersType) => void;
   availableAssignees: string[];
-  availableSprints: (string | null)[];
+  availableCycles: (string | null)[];
 }
 
 export default function Filters({
   filters,
   onFiltersChange,
   availableAssignees,
-  availableSprints,
+  availableCycles,
 }: FiltersProps) {
   const updateFilter = <K extends keyof FiltersType>(
     key: K,
@@ -165,8 +165,8 @@ export default function Filters({
       />
 
       <MultiSelect
-        label="Sprint"
-        options={availableSprints.filter((s): s is string => s !== null)}
+        label="Cycle"
+        options={availableCycles.filter((s): s is string => s !== null)}
         selected={filters.sprints}
         onChange={(value) => updateFilter("sprints", value)}
         onClear={() => clearFilter("sprints")}

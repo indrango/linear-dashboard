@@ -5,7 +5,7 @@ A clean, elegant dashboard for visualizing Linear issue data, inspired by Linear
 ## Features
 
 - **Real-time Data**: Fetches data directly from Linear GraphQL API
-- **Interactive Filters**: Filter by assignee, status, sprint, date range, and estimate points
+- **Interactive Filters**: Filter by assignee, status, cycle, date range, and estimate points
 - **Analytics Dashboard**: 
   - KPI cards showing key metrics
   - Status distribution chart

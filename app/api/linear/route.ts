@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAllLinearIssues, processLinearIssues } from "@/app/lib/linear";
+import { getAllLinearIssues, processLinearIssues, getAllCycles } from "@/app/lib/linear";
 
 export async function GET(request: NextRequest) {
   try {
@@ -12,13 +12,44 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Fetch all issues from Linear
-    const issues = await getAllLinearIssues(apiKey);
+    // Fetch all issues and cycles from Linear in parallel
+    const [issues, cycles] = await Promise.all([
+      getAllLinearIssues(apiKey),
+      getAllCycles(apiKey).catch((err) => {
+        console.error("Error fetching cycles:", err);
+        return [] as string[];
+      }),
+    ]);
+
+    // Debug: Log cycle data
+    const issuesWithCycles = issues.filter((issue) => issue.cycle !== null);
+    console.log(`Total issues: ${issues.length}`);
+    console.log(`Issues with cycles: ${issuesWithCycles.length}`);
+    if (issuesWithCycles.length > 0) {
+      console.log("Sample cycle data:", issuesWithCycles[0].cycle);
+    }
+    console.log(`Total cycles fetched: ${cycles.length}`);
 
     // Process issues to calculate durations and derive status
     const processedIssues = processLinearIssues(issues);
 
-    return NextResponse.json(processedIssues);
+    // Extract cycles from issues and combine with fetched cycles
+    const cyclesFromIssues = new Set(
+      processedIssues
+        .map((issue) => issue.sprint)
+        .filter((cycle): cycle is string => cycle !== null)
+    );
+    const allCycles = Array.from(new Set([...cycles, ...cyclesFromIssues])).sort();
+
+    // Debug: Log processed cycle data
+    const processedWithCycles = processedIssues.filter((issue) => issue.sprint !== null);
+    console.log(`Processed issues with cycles: ${processedWithCycles.length}`);
+    console.log(`All available cycles: ${allCycles.length}`, allCycles);
+
+    return NextResponse.json({
+      issues: processedIssues,
+      availableCycles: allCycles,
+    });
   } catch (error) {
     console.error("Error fetching Linear issues:", error);
     return NextResponse.json(
