@@ -14,13 +14,35 @@ type SortField =
   | "assignee"
   | "status"
   | "in_progress_to_in_review_days"
-  | "in_review_to_done_days"
+  | "in_review_to_ready_to_qa_days"
+  | "ready_to_qa_to_done_days"
   | "estimate_points";
 type SortDirection = "asc" | "desc";
 
 export default function IssueTable({ issues }: IssueTableProps) {
   const [sortField, setSortField] = useState<SortField>("issue_number");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+
+  // Debug: Check if the new fields exist
+  console.log("=== IssueTable Debug ===");
+  console.log("Total issues:", issues.length);
+  const issuesWithReviewToQA = issues.filter(i => i.in_review_to_ready_to_qa_days !== null && i.in_review_to_ready_to_qa_days !== undefined);
+  const issuesWithQAToDone = issues.filter(i => i.ready_to_qa_to_done_days !== null && i.ready_to_qa_to_done_days !== undefined);
+  console.log("Issues with in_review_to_ready_to_qa_days:", issuesWithReviewToQA.length);
+  console.log("Issues with ready_to_qa_to_done_days:", issuesWithQAToDone.length);
+  if (issuesWithReviewToQA.length > 0) {
+    console.log("Sample issue with review->qa:", {
+      number: issuesWithReviewToQA[0].issue_number,
+      value: issuesWithReviewToQA[0].in_review_to_ready_to_qa_days
+    });
+  }
+  if (issuesWithQAToDone.length > 0) {
+    console.log("Sample issue with qa->done:", {
+      number: issuesWithQAToDone[0].issue_number,
+      value: issuesWithQAToDone[0].ready_to_qa_to_done_days
+    });
+  }
+  console.log("=======================");
 
   const sortedIssues = useMemo(() => {
     const sorted = [...issues].sort((a, b) => {
@@ -48,9 +70,13 @@ export default function IssueTable({ issues }: IssueTableProps) {
           aValue = a.in_progress_to_in_review_days ?? -1;
           bValue = b.in_progress_to_in_review_days ?? -1;
           break;
-        case "in_review_to_done_days":
-          aValue = a.in_review_to_done_days ?? -1;
-          bValue = b.in_review_to_done_days ?? -1;
+        case "in_review_to_ready_to_qa_days":
+          aValue = a.in_review_to_ready_to_qa_days ?? -1;
+          bValue = b.in_review_to_ready_to_qa_days ?? -1;
+          break;
+        case "ready_to_qa_to_done_days":
+          aValue = a.ready_to_qa_to_done_days ?? -1;
+          bValue = b.ready_to_qa_to_done_days ?? -1;
           break;
         case "estimate_points":
           aValue = a.estimate_points ?? -1;
@@ -192,11 +218,20 @@ export default function IssueTable({ issues }: IssueTableProps) {
             </th>
             <th
               className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-              onClick={() => handleSort("in_review_to_done_days")}
+              onClick={() => handleSort("in_review_to_ready_to_qa_days")}
             >
               <div className="flex items-center">
-                Review → Done (days)
-                <SortIcon field="in_review_to_done_days" />
+                Review → Ready to QA (days)
+                <SortIcon field="in_review_to_ready_to_qa_days" />
+              </div>
+            </th>
+            <th
+              className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+              onClick={() => handleSort("ready_to_qa_to_done_days")}
+            >
+              <div className="flex items-center">
+                Ready to QA → Done (days)
+                <SortIcon field="ready_to_qa_to_done_days" />
               </div>
             </th>
             <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
@@ -239,13 +274,16 @@ export default function IssueTable({ issues }: IssueTableProps) {
                 {issue.in_progress_to_in_review_days ?? "-"}
               </td>
               <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-                {issue.in_review_to_done_days ?? "-"}
+                {issue.in_review_to_ready_to_qa_days ?? "-"}
+              </td>
+              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                {issue.ready_to_qa_to_done_days ?? "-"}
               </td>
               <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
                 {formatDate(issue.backlog_to_in_progress_timestamp)}
               </td>
               <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                {formatDate(issue.in_review_to_done_timestamp)}
+                {formatDate(issue.ready_to_qa_to_done_timestamp)}
               </td>
             </tr>
           ))}

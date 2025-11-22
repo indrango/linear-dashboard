@@ -42,6 +42,25 @@ export default function Filters({
     }
   };
 
+  const resetAllFilters = () => {
+    onFiltersChange({
+      assignees: [],
+      statuses: [],
+      sprints: [],
+      dateRange: { start: null, end: null },
+      estimateRange: { min: null, max: null },
+    });
+  };
+
+  const hasActiveFilters =
+    filters.assignees.length > 0 ||
+    filters.statuses.length > 0 ||
+    filters.sprints.length > 0 ||
+    filters.dateRange.start !== null ||
+    filters.dateRange.end !== null ||
+    filters.estimateRange.min !== null ||
+    filters.estimateRange.max !== null;
+
   const MultiSelect = ({
     label,
     options,
@@ -252,6 +271,15 @@ export default function Filters({
             </button>
           )}
       </div>
+
+      {hasActiveFilters && (
+        <button
+          onClick={resetAllFilters}
+          className="w-full mt-4 px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium rounded-md transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2"
+        >
+          Reset All Filters
+        </button>
+      )}
     </div>
   );
 }
