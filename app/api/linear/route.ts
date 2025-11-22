@@ -25,15 +25,6 @@ export async function GET(request: NextRequest) {
       }),
     ]);
 
-    // Debug: Log cycle data
-    const issuesWithCycles = issues.filter((issue) => issue.cycle !== null);
-    console.log(`Total issues: ${issues.length}`);
-    console.log(`Issues with cycles: ${issuesWithCycles.length}`);
-    if (issuesWithCycles.length > 0) {
-      console.log("Sample cycle data:", issuesWithCycles[0].cycle);
-    }
-    console.log(`Total cycles fetched: ${cycles.length}`);
-
     // Process issues to calculate durations and derive status
     const processedIssues = processLinearIssues(issues);
 
@@ -44,11 +35,6 @@ export async function GET(request: NextRequest) {
         .filter((cycle): cycle is string => cycle !== null)
     );
     const allCycles = Array.from(new Set([...cycles, ...cyclesFromIssues])).sort();
-
-    // Debug: Log processed cycle data
-    const processedWithCycles = processedIssues.filter((issue) => issue.sprint !== null);
-    console.log(`Processed issues with cycles: ${processedWithCycles.length}`);
-    console.log(`All available cycles: ${allCycles.length}`, allCycles);
 
     return NextResponse.json({
       issues: processedIssues,

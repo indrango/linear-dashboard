@@ -60,9 +60,13 @@ export interface ProcessedIssue {
   status_type: string;
   in_progress_to_in_review_days: number | null;
   in_review_to_done_days: number | null;
+  in_review_to_ready_to_qa_days: number | null;
+  ready_to_qa_to_done_days: number | null;
   backlog_to_in_progress_timestamp: string | null;
   in_progress_to_in_review_timestamp: string | null;
   in_review_to_done_timestamp: string | null;
+  in_review_to_ready_to_qa_timestamp: string | null;
+  ready_to_qa_to_done_timestamp: string | null;
 }
 
 // Filter types

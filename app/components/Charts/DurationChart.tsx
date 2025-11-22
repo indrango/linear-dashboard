@@ -21,14 +21,19 @@ export default function DurationChart({ issues }: DurationChartProps) {
   const data = useMemo(() => {
     const assigneeData: Record<
       string,
-      { inProgressToReview: number[]; inReviewToDone: number[] }
+      { 
+        inProgressToReview: number[];
+        inReviewToReadyToQa: number[];
+        readyToQaToDone: number[];
+      }
     > = {};
 
     issues.forEach((issue) => {
       if (!assigneeData[issue.assignee]) {
         assigneeData[issue.assignee] = {
           inProgressToReview: [],
-          inReviewToDone: [],
+          inReviewToReadyToQa: [],
+          readyToQaToDone: [],
         };
       }
 
@@ -38,9 +43,15 @@ export default function DurationChart({ issues }: DurationChartProps) {
         );
       }
 
-      if (issue.in_review_to_done_days !== null) {
-        assigneeData[issue.assignee].inReviewToDone.push(
-          issue.in_review_to_done_days
+      if (issue.in_review_to_ready_to_qa_days !== null) {
+        assigneeData[issue.assignee].inReviewToReadyToQa.push(
+          issue.in_review_to_ready_to_qa_days
+        );
+      }
+
+      if (issue.ready_to_qa_to_done_days !== null) {
+        assigneeData[issue.assignee].readyToQaToDone.push(
+          issue.ready_to_qa_to_done_days
         );
       }
     });
@@ -53,22 +64,29 @@ export default function DurationChart({ issues }: DurationChartProps) {
               data.inProgressToReview.length
             : 0;
 
-        const avgInReviewToDone =
-          data.inReviewToDone.length > 0
-            ? data.inReviewToDone.reduce((a, b) => a + b, 0) /
-              data.inReviewToDone.length
+        const avgInReviewToReadyToQa =
+          data.inReviewToReadyToQa.length > 0
+            ? data.inReviewToReadyToQa.reduce((a, b) => a + b, 0) /
+              data.inReviewToReadyToQa.length
+            : 0;
+
+        const avgReadyToQaToDone =
+          data.readyToQaToDone.length > 0
+            ? data.readyToQaToDone.reduce((a, b) => a + b, 0) /
+              data.readyToQaToDone.length
             : 0;
 
         return {
           assignee: assignee.length > 15 ? assignee.substring(0, 15) + "..." : assignee,
           "In Progress → Review": Math.round(avgInProgressToReview * 100) / 100,
-          "Review → Done": Math.round(avgInReviewToDone * 100) / 100,
+          "Review → Ready to QA": Math.round(avgInReviewToReadyToQa * 100) / 100,
+          "Ready to QA → Done": Math.round(avgReadyToQaToDone * 100) / 100,
         };
       })
-      .filter((d) => d["In Progress → Review"] > 0 || d["Review → Done"] > 0)
+      .filter((d) => d["In Progress → Review"] > 0 || d["Review → Ready to QA"] > 0 || d["Ready to QA → Done"] > 0)
       .sort((a, b) => {
-        const aTotal = a["In Progress → Review"] + a["Review → Done"];
-        const bTotal = b["In Progress → Review"] + b["Review → Done"];
+        const aTotal = a["In Progress → Review"] + a["Review → Ready to QA"] + a["Ready to QA → Done"];
+        const bTotal = b["In Progress → Review"] + b["Review → Ready to QA"] + b["Ready to QA → Done"];
         return bTotal - aTotal;
       })
       .slice(0, 10); // Top 10 assignees
@@ -97,7 +115,16 @@ export default function DurationChart({ issues }: DurationChartProps) {
             fill="#f59e0b"
             radius={[4, 4, 0, 0]}
           />
-          <Bar dataKey="Review → Done" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+          <Bar 
+            dataKey="Review → Ready to QA" 
+            fill="#3b82f6" 
+            radius={[4, 4, 0, 0]} 
+          />
+          <Bar 
+            dataKey="Ready to QA → Done" 
+            fill="#10b981" 
+            radius={[4, 4, 0, 0]} 
+          />
         </BarChart>
       </ResponsiveContainer>
     </div>

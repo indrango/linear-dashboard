@@ -218,6 +218,8 @@ export function processLinearIssues(issues: LinearIssue[]): ProcessedIssue[] {
     const history = issue.history.nodes;
     let backlogToInProgressTs: string | null = null;
     let inProgressToInReviewTs: string | null = null;
+    let inReviewToReadyToQaTs: string | null = null;
+    let readyToQaToDoneTs: string | null = null;
     let inReviewToDoneTs: string | null = null;
 
     // Extract transition timestamps from history
@@ -236,7 +238,16 @@ export function processLinearIssues(issues: LinearIssue[]): ProcessedIssue[] {
         if (!inProgressToInReviewTs) {
           inProgressToInReviewTs = ts;
         }
+      } else if (prevName === "In Review" && newName === "Ready to QA") {
+        if (!inReviewToReadyToQaTs) {
+          inReviewToReadyToQaTs = ts;
+        }
+      } else if (prevName === "Ready to QA" && newName === "Done") {
+        if (!readyToQaToDoneTs) {
+          readyToQaToDoneTs = ts;
+        }
       } else if (prevName === "In Review" && newName === "Done") {
+        // Direct transition from In Review to Done (skip Ready to QA)
         if (!inReviewToDoneTs) {
           inReviewToDoneTs = ts;
         }
@@ -245,6 +256,8 @@ export function processLinearIssues(issues: LinearIssue[]): ProcessedIssue[] {
 
     // Calculate durations in days
     let inProgressToInReviewDays: number | null = null;
+    let inReviewToReadyToQaDays: number | null = null;
+    let readyToQaToDoneDays: number | null = null;
     let inReviewToDoneDays: number | null = null;
 
     try {
@@ -259,9 +272,42 @@ export function processLinearIssues(issues: LinearIssue[]): ProcessedIssue[] {
     }
 
     try {
-      if (inProgressToInReviewTs && inReviewToDoneTs) {
+      if (inProgressToInReviewTs && inReviewToReadyToQaTs) {
+        const inReviewStart = new Date(inProgressToInReviewTs);
+        const readyToQaTime = new Date(inReviewToReadyToQaTs);
+        const diffMs = readyToQaTime.getTime() - inReviewStart.getTime();
+        inReviewToReadyToQaDays = Math.round((diffMs / (1000 * 60 * 60 * 24)) * 100) / 100;
+      }
+    } catch (e) {
+      inReviewToReadyToQaDays = null;
+    }
+
+    try {
+      if (inReviewToReadyToQaTs && readyToQaToDoneTs) {
+        const readyToQaStart = new Date(inReviewToReadyToQaTs);
+        const doneTime = new Date(readyToQaToDoneTs);
+        const diffMs = doneTime.getTime() - readyToQaStart.getTime();
+        readyToQaToDoneDays = Math.round((diffMs / (1000 * 60 * 60 * 24)) * 100) / 100;
+      }
+    } catch (e) {
+      readyToQaToDoneDays = null;
+    }
+
+    // Calculate total in_review_to_done_days (backward compatibility)
+    try {
+      if (inReviewToReadyToQaDays !== null && readyToQaToDoneDays !== null) {
+        // If we have both phases, sum them
+        inReviewToDoneDays = Math.round((inReviewToReadyToQaDays + readyToQaToDoneDays) * 100) / 100;
+      } else if (inProgressToInReviewTs && inReviewToDoneTs) {
+        // Direct transition from In Review to Done
         const inReviewStart = new Date(inProgressToInReviewTs);
         const doneTime = new Date(inReviewToDoneTs);
+        const diffMs = doneTime.getTime() - inReviewStart.getTime();
+        inReviewToDoneDays = Math.round((diffMs / (1000 * 60 * 60 * 24)) * 100) / 100;
+      } else if (inProgressToInReviewTs && readyToQaToDoneTs) {
+        // In case we have Ready to QA to Done but missed the In Review to Ready to QA transition
+        const inReviewStart = new Date(inProgressToInReviewTs);
+        const doneTime = new Date(readyToQaToDoneTs);
         const diffMs = doneTime.getTime() - inReviewStart.getTime();
         inReviewToDoneDays = Math.round((diffMs / (1000 * 60 * 60 * 24)) * 100) / 100;
       }
@@ -284,9 +330,13 @@ export function processLinearIssues(issues: LinearIssue[]): ProcessedIssue[] {
       status_type,
       in_progress_to_in_review_days: inProgressToInReviewDays,
       in_review_to_done_days: inReviewToDoneDays,
+      in_review_to_ready_to_qa_days: inReviewToReadyToQaDays,
+      ready_to_qa_to_done_days: readyToQaToDoneDays,
       backlog_to_in_progress_timestamp: backlogToInProgressTs,
       in_progress_to_in_review_timestamp: inProgressToInReviewTs,
       in_review_to_done_timestamp: inReviewToDoneTs,
+      in_review_to_ready_to_qa_timestamp: inReviewToReadyToQaTs,
+      ready_to_qa_to_done_timestamp: readyToQaToDoneTs,
     };
   });
 }

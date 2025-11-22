@@ -22,20 +22,30 @@ export default function KPICards({ issues }: KPICardsProps) {
         inProgressToReviewDays.length
         : 0;
 
-    const inReviewToDoneDays = issues
-      .map((i) => i.in_review_to_done_days)
+    const inReviewToReadyToQaDays = issues
+      .map((i) => i.in_review_to_ready_to_qa_days)
       .filter((d): d is number => d !== null);
-    const avgInReviewToDone =
-      inReviewToDoneDays.length > 0
-        ? inReviewToDoneDays.reduce((a, b) => a + b, 0) /
-        inReviewToDoneDays.length
+    const avgInReviewToReadyToQa =
+      inReviewToReadyToQaDays.length > 0
+        ? inReviewToReadyToQaDays.reduce((a, b) => a + b, 0) /
+        inReviewToReadyToQaDays.length
+        : 0;
+
+    const readyToQaToDoneDays = issues
+      .map((i) => i.ready_to_qa_to_done_days)
+      .filter((d): d is number => d !== null);
+    const avgReadyToQaToDone =
+      readyToQaToDoneDays.length > 0
+        ? readyToQaToDoneDays.reduce((a, b) => a + b, 0) /
+        readyToQaToDoneDays.length
         : 0;
 
     return {
       totalIssues,
       completionRate: Math.round(completionRate * 10) / 10,
       avgInProgressToReview: Math.round(avgInProgressToReview * 100) / 100,
-      avgInReviewToDone: Math.round(avgInReviewToDone * 100) / 100,
+      avgInReviewToReadyToQa: Math.round(avgInReviewToReadyToQa * 100) / 100,
+      avgReadyToQaToDone: Math.round(avgReadyToQaToDone * 100) / 100,
     };
   }, [issues]);
 
@@ -56,7 +66,7 @@ export default function KPICards({ issues }: KPICardsProps) {
   );
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
       <Card title="Total Issues" value={metrics.totalIssues} />
       <Card
         title="Completion Rate"
@@ -65,13 +75,18 @@ export default function KPICards({ issues }: KPICardsProps) {
       />
       <Card
         title="Avg: In Progress → Review"
-        value={`${metrics.avgInProgressToReview} days`}
-        subtitle="Average duration"
+        value={metrics.avgInProgressToReview > 0 ? `${metrics.avgInProgressToReview} days` : "N/A"}
+        subtitle="Development time"
       />
       <Card
-        title="Avg: Review → Done"
-        value={`${metrics.avgInReviewToDone} days`}
-        subtitle="Average duration"
+        title="Avg: Review → Ready to QA"
+        value={metrics.avgInReviewToReadyToQa > 0 ? `${metrics.avgInReviewToReadyToQa} days` : "N/A"}
+        subtitle="PR review time"
+      />
+      <Card
+        title="Avg: Ready to QA → Done"
+        value={metrics.avgReadyToQaToDone > 0 ? `${metrics.avgReadyToQaToDone} days` : "N/A"}
+        subtitle="QA completion time"
       />
     </div>
   );
