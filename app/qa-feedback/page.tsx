@@ -1,20 +1,16 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
-import { ProcessedIssue, Filters } from "@/app/lib/types";
+import { useState, useMemo } from "react";
+import { Filters } from "@/app/lib/types";
 import FiltersComponent from "@/app/components/Filters";
 import QAFeedbackTable from "@/app/components/QAFeedbackTable";
 import QAFeedbackKPICards from "@/app/components/QAFeedbackKPICards";
-import IssueTable from "@/app/components/IssueTable";
+import LastUpdated from "@/app/components/LastUpdated";
+import { useLinearData } from "@/app/hooks/useLinearData";
+import { useFilteredIssues } from "@/app/hooks/useFilteredIssues";
 
 export default function QAFeedbackPage() {
-  const [issues, setIssues] = useState<ProcessedIssue[]>([]);
-  const [filteredIssues, setFilteredIssues] = useState<ProcessedIssue[]>([]);
-  const [availableCycles, setAvailableCycles] = useState<string[]>([]);
-  const [availableStatuses, setAvailableStatuses] = useState<string[]>([]);
-  const [availableLabels, setAvailableLabels] = useState<Array<{ name: string; color: string }>>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data, isLoading, error, lastUpdated, isStale, refetch, isRefetching } = useLinearData();
   const [filters, setFilters] = useState<Filters>({
     assignees: [],
     statuses: [],
@@ -24,58 +20,10 @@ export default function QAFeedbackPage() {
     estimateRange: { min: null, max: null },
   });
 
-  // Fetch data on mount
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        setLoading(true);
-        setError(null);
-        const response = await fetch("/api/linear");
-        if (!response.ok) {
-          throw new Error(`Failed to fetch: ${response.statusText}`);
-        }
-        const data = await response.json();
-
-        // Handle both old format (array) and new format (object with issues and availableCycles)
-        if (Array.isArray(data)) {
-          // Backward compatibility: old format
-          setIssues(data);
-          setFilteredIssues(data);
-          const cycles = new Set(
-            data.map((i) => i.sprint).filter((s): s is string => s !== null)
-          );
-          setAvailableCycles(Array.from(cycles).sort());
-          setAvailableStatuses(["Todo", "In Progress", "In Review", "Done"]);
-          const labels = new Set(
-            data.flatMap((i) => i.labels || [])
-          );
-          // For backward compatibility, create label objects with default color
-          setAvailableLabels(
-            Array.from(labels)
-              .map((name) => ({ name, color: "#6B7280" }))
-              .sort((a, b) => a.name.localeCompare(b.name))
-          );
-        } else {
-          // New format: object with issues, availableCycles, availableStatuses, and availableLabels
-          setIssues(data.issues || []);
-          setFilteredIssues(data.issues || []);
-          setAvailableCycles(data.availableCycles || []);
-          setAvailableStatuses(data.availableStatuses || []);
-          setAvailableLabels(
-            data.availableLabels?.map((label: { name: string; color: string } | string) =>
-              typeof label === "string" ? { name: label, color: "#6B7280" } : label
-            ) || []
-          );
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to fetch issues");
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchData();
-  }, []);
+  const issues = data?.issues || [];
+  const availableCycles = data?.availableCycles || [];
+  const availableStatuses = data?.availableStatuses || [];
+  const availableLabels = data?.availableLabels || [];
 
   // Extract unique values for filters
   const availableAssignees = useMemo(() => {
@@ -83,77 +31,10 @@ export default function QAFeedbackPage() {
     return Array.from(assignees).sort();
   }, [issues]);
 
-  // Apply filters
-  useEffect(() => {
-    let filtered = [...issues];
+  // Apply filters using custom hook (optimized with useMemo)
+  const filteredIssues = useFilteredIssues(issues, filters);
 
-    // Filter by assignees
-    if (filters.assignees.length > 0) {
-      filtered = filtered.filter((i) => filters.assignees.includes(i.assignee));
-    }
-
-    // Filter by statuses
-    if (filters.statuses.length > 0) {
-      filtered = filtered.filter((i) => filters.statuses.includes(i.status));
-    }
-
-    // Filter by cycles
-    if (filters.sprints.length > 0) {
-      filtered = filtered.filter(
-        (i) => i.sprint && filters.sprints.includes(i.sprint)
-      );
-    }
-
-    // Filter by labels
-    if (filters.labels.length > 0) {
-      filtered = filtered.filter(
-        (i) => i.labels && i.labels.some((label) => filters.labels.includes(label))
-      );
-    }
-
-    // Filter by date range
-    if (filters.dateRange.start) {
-      const startDate = new Date(filters.dateRange.start);
-      filtered = filtered.filter((i) => {
-        const issueDate = i.backlog_to_in_progress_timestamp
-          ? new Date(i.backlog_to_in_progress_timestamp)
-          : null;
-        return issueDate && issueDate >= startDate;
-      });
-    }
-
-    if (filters.dateRange.end) {
-      const endDate = new Date(filters.dateRange.end);
-      endDate.setHours(23, 59, 59, 999); // Include the entire end date
-      filtered = filtered.filter((i) => {
-        const issueDate = i.backlog_to_in_progress_timestamp
-          ? new Date(i.backlog_to_in_progress_timestamp)
-          : null;
-        return issueDate && issueDate <= endDate;
-      });
-    }
-
-    // Filter by estimate range
-    if (filters.estimateRange.min !== null) {
-      filtered = filtered.filter(
-        (i) =>
-          i.estimate_points !== null &&
-          i.estimate_points >= filters.estimateRange.min!
-      );
-    }
-
-    if (filters.estimateRange.max !== null) {
-      filtered = filtered.filter(
-        (i) =>
-          i.estimate_points !== null &&
-          i.estimate_points <= filters.estimateRange.max!
-      );
-    }
-
-    setFilteredIssues(filtered);
-  }, [issues, filters]);
-
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -172,9 +53,9 @@ export default function QAFeedbackPage() {
             <h2 className="text-lg font-semibold text-red-900 mb-2">
               Error Loading Data
             </h2>
-            <p className="text-red-700">{error}</p>
+            <p className="text-red-700">{error.message}</p>
             <button
-              onClick={() => window.location.reload()}
+              onClick={() => refetch()}
               className="mt-4 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
             >
               Retry
@@ -189,10 +70,20 @@ export default function QAFeedbackPage() {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <header className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">QA Feedback Analysis</h1>
-          <p className="mt-2 text-gray-600">
-            Track QA feedback iterations and fix times
-          </p>
+          <div className="flex items-start justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">QA Feedback Analysis</h1>
+              <p className="mt-2 text-gray-600">
+                Track QA feedback iterations and fix times
+              </p>
+            </div>
+            <LastUpdated
+              lastUpdated={lastUpdated}
+              isStale={isStale}
+              isRefetching={isRefetching}
+              onRefresh={() => refetch()}
+            />
+          </div>
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">

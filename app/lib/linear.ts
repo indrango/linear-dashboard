@@ -2,6 +2,29 @@ import { LinearIssue, LinearCycle, ProcessedIssue, QAFeedbackCycle } from "./typ
 
 const LINEAR_API_URL = "https://api.linear.app/graphql";
 
+/**
+ * Helper function to handle fetch errors with better error messages
+ */
+async function fetchWithErrorHandling(
+  url: string,
+  options: RequestInit
+): Promise<Response> {
+  try {
+    const response = await fetch(url, options);
+    return response;
+  } catch (fetchError) {
+    // Handle network errors (DNS, connection, etc.)
+    if (fetchError instanceof TypeError && fetchError.message.includes("fetch failed")) {
+      const cause = (fetchError as any).cause;
+      if (cause?.code === "ENOTFOUND") {
+        throw new Error(`Network error: Cannot resolve hostname 'api.linear.app'. Please check your internet connection and DNS settings.`);
+      }
+      throw new Error(`Network error: Unable to connect to Linear API. ${fetchError.message}`);
+    }
+    throw fetchError;
+  }
+}
+
 export async function fetchLinearIssues(
   apiKey: string,
   after?: string | null
@@ -72,7 +95,7 @@ export async function fetchLinearIssues(
 
   const variables = after ? { after } : {};
 
-  const response = await fetch(LINEAR_API_URL, {
+  const response = await fetchWithErrorHandling(LINEAR_API_URL, {
     method: "POST",
     headers: {
       Authorization: apiKey,
@@ -143,7 +166,7 @@ export async function getAllCycles(apiKey: string): Promise<string[]> {
   while (hasNext) {
     const variables: { after?: string } = after ? { after } : {};
 
-    const response: Response = await fetch(LINEAR_API_URL, {
+    const response: Response = await fetchWithErrorHandling(LINEAR_API_URL, {
       method: "POST",
       headers: {
         Authorization: apiKey,
@@ -198,7 +221,7 @@ export async function getAllWorkflowStates(apiKey: string): Promise<string[]> {
     }
   `;
 
-  const response = await fetch(LINEAR_API_URL, {
+  const response = await fetchWithErrorHandling(LINEAR_API_URL, {
     method: "POST",
     headers: {
       Authorization: apiKey,
@@ -247,7 +270,7 @@ export async function getAllLabels(apiKey: string): Promise<Array<{ name: string
   while (hasNext) {
     const variables: { after?: string } = after ? { after } : {};
 
-    const response: Response = await fetch(LINEAR_API_URL, {
+    const response: Response = await fetchWithErrorHandling(LINEAR_API_URL, {
       method: "POST",
       headers: {
         Authorization: apiKey,
@@ -348,8 +371,13 @@ export function processLinearIssues(issues: LinearIssue[]): ProcessedIssue[] {
       if (backlogToInProgressTs && inProgressToInReviewTs) {
         const inProgressStart = new Date(backlogToInProgressTs);
         const inReviewStart = new Date(inProgressToInReviewTs);
-        const diffMs = inReviewStart.getTime() - inProgressStart.getTime();
-        inProgressToInReviewDays = Math.round((diffMs / (1000 * 60 * 60 * 24)) * 100) / 100;
+        // Validate dates
+        if (!isNaN(inProgressStart.getTime()) && !isNaN(inReviewStart.getTime())) {
+          const diffMs = inReviewStart.getTime() - inProgressStart.getTime();
+          if (diffMs >= 0) {
+            inProgressToInReviewDays = Math.round((diffMs / (1000 * 60 * 60 * 24)) * 100) / 100;
+          }
+        }
       }
     } catch (e) {
       inProgressToInReviewDays = null;
@@ -359,8 +387,13 @@ export function processLinearIssues(issues: LinearIssue[]): ProcessedIssue[] {
       if (inProgressToInReviewTs && inReviewToReadyToQaTs) {
         const inReviewStart = new Date(inProgressToInReviewTs);
         const readyToQaTime = new Date(inReviewToReadyToQaTs);
-        const diffMs = readyToQaTime.getTime() - inReviewStart.getTime();
-        inReviewToReadyToQaDays = Math.round((diffMs / (1000 * 60 * 60 * 24)) * 100) / 100;
+        // Validate dates
+        if (!isNaN(inReviewStart.getTime()) && !isNaN(readyToQaTime.getTime())) {
+          const diffMs = readyToQaTime.getTime() - inReviewStart.getTime();
+          if (diffMs >= 0) {
+            inReviewToReadyToQaDays = Math.round((diffMs / (1000 * 60 * 60 * 24)) * 100) / 100;
+          }
+        }
       }
     } catch (e) {
       inReviewToReadyToQaDays = null;
@@ -370,8 +403,13 @@ export function processLinearIssues(issues: LinearIssue[]): ProcessedIssue[] {
       if (inReviewToReadyToQaTs && readyToQaToDoneTs) {
         const readyToQaStart = new Date(inReviewToReadyToQaTs);
         const doneTime = new Date(readyToQaToDoneTs);
-        const diffMs = doneTime.getTime() - readyToQaStart.getTime();
-        readyToQaToDoneDays = Math.round((diffMs / (1000 * 60 * 60 * 24)) * 100) / 100;
+        // Validate dates
+        if (!isNaN(readyToQaStart.getTime()) && !isNaN(doneTime.getTime())) {
+          const diffMs = doneTime.getTime() - readyToQaStart.getTime();
+          if (diffMs >= 0) {
+            readyToQaToDoneDays = Math.round((diffMs / (1000 * 60 * 60 * 24)) * 100) / 100;
+          }
+        }
       }
     } catch (e) {
       readyToQaToDoneDays = null;
@@ -386,14 +424,24 @@ export function processLinearIssues(issues: LinearIssue[]): ProcessedIssue[] {
         // Direct transition from In Review to Done
         const inReviewStart = new Date(inProgressToInReviewTs);
         const doneTime = new Date(inReviewToDoneTs);
-        const diffMs = doneTime.getTime() - inReviewStart.getTime();
-        inReviewToDoneDays = Math.round((diffMs / (1000 * 60 * 60 * 24)) * 100) / 100;
+        // Validate dates
+        if (!isNaN(inReviewStart.getTime()) && !isNaN(doneTime.getTime())) {
+          const diffMs = doneTime.getTime() - inReviewStart.getTime();
+          if (diffMs >= 0) {
+            inReviewToDoneDays = Math.round((diffMs / (1000 * 60 * 60 * 24)) * 100) / 100;
+          }
+        }
       } else if (inProgressToInReviewTs && readyToQaToDoneTs) {
         // In case we have Ready to QA to Done but missed the In Review to Ready to QA transition
         const inReviewStart = new Date(inProgressToInReviewTs);
         const doneTime = new Date(readyToQaToDoneTs);
-        const diffMs = doneTime.getTime() - inReviewStart.getTime();
-        inReviewToDoneDays = Math.round((diffMs / (1000 * 60 * 60 * 24)) * 100) / 100;
+        // Validate dates
+        if (!isNaN(inReviewStart.getTime()) && !isNaN(doneTime.getTime())) {
+          const diffMs = doneTime.getTime() - inReviewStart.getTime();
+          if (diffMs >= 0) {
+            inReviewToDoneDays = Math.round((diffMs / (1000 * 60 * 60 * 24)) * 100) / 100;
+          }
+        }
       }
     } catch (e) {
       inReviewToDoneDays = null;

@@ -2,11 +2,14 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import Navigation from "./components/Navigation";
+import { Providers } from "./providers";
 
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
   display: "swap",
+  fallback: ["system-ui", "arial"],
+  adjustFontFallback: true,
 });
 
 export const metadata: Metadata = {
@@ -22,8 +25,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${inter.variable} antialiased`}>
-        <Navigation />
-        {children}
+        <Providers>
+          <Navigation />
+          {children}
+        </Providers>
       </body>
     </html>
   );

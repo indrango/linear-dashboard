@@ -14,7 +14,14 @@ export async function GET(request: NextRequest) {
 
     // Fetch all issues, cycles, workflow states, and labels from Linear in parallel
     const [issues, cycles, workflowStates, labels] = await Promise.all([
-      getAllLinearIssues(apiKey),
+      getAllLinearIssues(apiKey).catch((err) => {
+        console.error("Error fetching issues:", err);
+        // Check if it's a network error
+        if (err instanceof TypeError && err.message.includes("fetch failed")) {
+          throw new Error("Network error: Unable to connect to Linear API. Please check your internet connection and DNS settings.");
+        }
+        throw err;
+      }),
       getAllCycles(apiKey).catch((err) => {
         console.error("Error fetching cycles:", err);
         return [] as string[];
@@ -66,8 +73,21 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error("Error fetching Linear issues:", error);
+    
+    // Provide more helpful error messages
+    let errorMessage = "Failed to fetch issues";
+    if (error instanceof Error) {
+      if (error.message.includes("Network error") || error.message.includes("ENOTFOUND")) {
+        errorMessage = "Network error: Unable to connect to Linear API. Please check your internet connection and DNS settings.";
+      } else if (error.message.includes("LINEAR_API_KEY")) {
+        errorMessage = "Configuration error: LINEAR_API_KEY is not set or invalid.";
+      } else {
+        errorMessage = error.message;
+      }
+    }
+    
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to fetch issues" },
+      { error: errorMessage },
       { status: 500 }
     );
   }

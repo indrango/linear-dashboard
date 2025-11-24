@@ -24,10 +24,21 @@ export default function QAFeedbackTable({ issues, availableLabels }: QAFeedbackT
     to_ready_to_qa_timestamp: string;
   }) => {
     // Time to fix = from when status changed (work started) to when back to Ready to QA
-    const start = new Date(cycle.status_change_timestamp);
-    const end = new Date(cycle.to_ready_to_qa_timestamp);
-    const diffMs = end.getTime() - start.getTime();
-    return Math.round((diffMs / (1000 * 60 * 60 * 24)) * 100) / 100;
+    try {
+      const start = new Date(cycle.status_change_timestamp);
+      const end = new Date(cycle.to_ready_to_qa_timestamp);
+      // Validate dates
+      if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+        return 0;
+      }
+      const diffMs = end.getTime() - start.getTime();
+      if (diffMs < 0) {
+        return 0; // Invalid: end before start
+      }
+      return Math.round((diffMs / (1000 * 60 * 60 * 24)) * 100) / 100;
+    } catch {
+      return 0;
+    }
   };
 
   return (
