@@ -1,4 +1,4 @@
-import { LinearIssue, LinearCycle, ProcessedIssue } from "./types";
+import { LinearIssue, LinearCycle, ProcessedIssue, QAFeedbackCycle } from "./types";
 
 const LINEAR_API_URL = "https://api.linear.app/graphql";
 
@@ -405,6 +405,111 @@ export function processLinearIssues(issues: LinearIssue[]): ProcessedIssue[] {
 
     // Extract label names
     const labelNames = issue.labels?.nodes?.map((label) => label.name) || [];
+    const hasQaFeedbackLabel = labelNames.some(name => 
+      name.toLowerCase().includes("qa feedback") || 
+      name.toLowerCase() === "qa feedback"
+    );
+
+    // Track QA Feedback cycles with sequential pattern validation
+    // Pattern 1: "Ready to QA" → (any status change) → "Ready to QA" (primary)
+    // Pattern 2: "In QA" → (any status change) → "Ready to QA" (fallback if Pattern 1 = 0)
+    const qaFeedbackCyclesReadyToQa: QAFeedbackCycle[] = [];
+    const qaFeedbackCyclesInQa: QAFeedbackCycle[] = [];
+
+    if (hasQaFeedbackLabel) {
+      // Sort history by timestamp to process chronologically
+      const sortedHistory = [...history].sort((a, b) => 
+        new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime()
+      );
+
+      // ===== PATTERN 1: "Ready to QA" → (any status change) → "Ready to QA" =====
+      let readyToQaLeftTimestamp: string | null = null;
+      let statusChangeTimestamp1: string | null = null;
+
+      for (const entry of sortedHistory) {
+        if (!entry.toState || !entry.fromState) continue;
+
+        const fromState = entry.fromState.name;
+        const toState = entry.toState.name;
+        const timestamp = entry.updatedAt;
+
+        // Pattern 1 detection
+        if (fromState === "Ready to QA" && toState !== "Ready to QA") {
+          // Leave "Ready to QA" → any other state (label likely assigned here, work starts)
+          readyToQaLeftTimestamp = timestamp;
+          statusChangeTimestamp1 = timestamp; // Status change happens immediately
+        }
+        else if (readyToQaLeftTimestamp && fromState !== toState && toState !== "Ready to QA") {
+          // Any subsequent status change after leaving "Ready to QA" (work continues)
+          statusChangeTimestamp1 = timestamp;
+        }
+        else if (fromState !== "Ready to QA" && toState === "Ready to QA" && readyToQaLeftTimestamp) {
+          // Return to "Ready to QA" (fix complete, ready for re-check)
+          const cycle: QAFeedbackCycle = {
+            qa_feedback_timestamp: readyToQaLeftTimestamp,
+            status_change_timestamp: statusChangeTimestamp1 || readyToQaLeftTimestamp,
+            to_ready_to_qa_timestamp: timestamp,
+            pattern_type: "ready_to_qa",
+          };
+          qaFeedbackCyclesReadyToQa.push(cycle);
+          // Reset for next cycle
+          readyToQaLeftTimestamp = null;
+          statusChangeTimestamp1 = null;
+        }
+      }
+
+      // ===== PATTERN 2: "In QA" → (any status change) → "Ready to QA" (fallback) =====
+      // Only process Pattern 2 if Pattern 1 resulted in 0 iterations
+      if (qaFeedbackCyclesReadyToQa.length === 0) {
+        let inQaTimestamp: string | null = null;
+        let statusChangeTimestamp2: string | null = null;
+
+        for (const entry of sortedHistory) {
+          if (!entry.toState || !entry.fromState) continue;
+
+          const fromState = entry.fromState.name;
+          const toState = entry.toState.name;
+          const timestamp = entry.updatedAt;
+
+          // Pattern 2 detection
+          if (fromState === "In QA" && toState !== "In QA") {
+            // Leave "In QA" → any other state (label likely assigned here, work starts)
+            inQaTimestamp = timestamp;
+            statusChangeTimestamp2 = timestamp;
+          }
+          else if (inQaTimestamp && fromState !== toState && toState !== "Ready to QA" && toState !== "In QA") {
+            // Any subsequent status change after leaving "In QA" (work continues)
+            statusChangeTimestamp2 = timestamp;
+          }
+          else if (fromState !== "Ready to QA" && toState === "Ready to QA" && inQaTimestamp) {
+            // Return to "Ready to QA" (fix complete, ready for re-check)
+            const cycle: QAFeedbackCycle = {
+              qa_feedback_timestamp: inQaTimestamp,
+              status_change_timestamp: statusChangeTimestamp2 || inQaTimestamp,
+              to_ready_to_qa_timestamp: timestamp,
+              pattern_type: "in_qa",
+            };
+            qaFeedbackCyclesInQa.push(cycle);
+            // Reset for next cycle
+            inQaTimestamp = null;
+            statusChangeTimestamp2 = null;
+          }
+          else if (toState === "In QA" && fromState !== "In QA" && inQaTimestamp) {
+            // If we're tracking a cycle and move back to "In QA" without completing,
+            // reset the tracking (incomplete cycle, start fresh)
+            inQaTimestamp = timestamp;
+            statusChangeTimestamp2 = null;
+          }
+        }
+      }
+    }
+
+    // Determine which pattern's cycles to use as primary
+    // Use Pattern 1 if it found cycles, otherwise use Pattern 2
+    const primaryCycles = qaFeedbackCyclesReadyToQa.length > 0 
+      ? qaFeedbackCyclesReadyToQa 
+      : qaFeedbackCyclesInQa;
+    const primaryIterations = primaryCycles.length;
 
     return {
       issue_id: issue.id,
@@ -425,6 +530,14 @@ export function processLinearIssues(issues: LinearIssue[]): ProcessedIssue[] {
       in_review_to_done_timestamp: inReviewToDoneTs,
       in_review_to_ready_to_qa_timestamp: inReviewToReadyToQaTs,
       ready_to_qa_to_done_timestamp: readyToQaToDoneTs,
+      // Primary fields use whichever pattern found results (Pattern 1 preferred, Pattern 2 fallback)
+      qa_feedback_iterations: primaryIterations,
+      qa_feedback_cycles: primaryCycles,
+      // Comparison fields for analysis (keep both patterns tracked separately)
+      qa_feedback_iterations_ready_to_qa: qaFeedbackCyclesReadyToQa.length,
+      qa_feedback_iterations_in_qa: qaFeedbackCyclesInQa.length,
+      qa_feedback_cycles_ready_to_qa: qaFeedbackCyclesReadyToQa,
+      qa_feedback_cycles_in_qa: qaFeedbackCyclesInQa,
     };
   });
 }

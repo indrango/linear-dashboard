@@ -3,13 +3,11 @@
 import { useState, useEffect, useMemo } from "react";
 import { ProcessedIssue, Filters } from "@/app/lib/types";
 import FiltersComponent from "@/app/components/Filters";
+import QAFeedbackTable from "@/app/components/QAFeedbackTable";
+import QAFeedbackKPICards from "@/app/components/QAFeedbackKPICards";
 import IssueTable from "@/app/components/IssueTable";
-import KPICards from "@/app/components/KPICards";
-import StatusChart from "@/app/components/Charts/StatusChart";
-import DurationChart from "@/app/components/Charts/DurationChart";
-import TimelineChart from "@/app/components/Charts/TimelineChart";
 
-export default function Dashboard() {
+export default function QAFeedbackPage() {
   const [issues, setIssues] = useState<ProcessedIssue[]>([]);
   const [filteredIssues, setFilteredIssues] = useState<ProcessedIssue[]>([]);
   const [availableCycles, setAvailableCycles] = useState<string[]>([]);
@@ -191,9 +189,9 @@ export default function Dashboard() {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <header className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Linear Dashboard</h1>
+          <h1 className="text-3xl font-bold text-gray-900">QA Feedback Analysis</h1>
           <p className="mt-2 text-gray-600">
-            Track issue durations and team performance
+            Track QA feedback iterations and fix times
           </p>
         </header>
 
@@ -212,27 +210,28 @@ export default function Dashboard() {
 
           {/* Main Content */}
           <div className="lg:col-span-3 space-y-6">
-            {/* KPI Cards */}
-            <KPICards issues={filteredIssues} />
+            {/* QA Feedback KPI Cards */}
+            <QAFeedbackKPICards issues={filteredIssues} />
 
-            {/* Charts */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <StatusChart issues={filteredIssues} />
-              <DurationChart issues={filteredIssues} />
-            </div>
-            <TimelineChart issues={filteredIssues} />
-
-            {/* Issues Table */}
+            {/* QA Feedback Table */}
             <div>
               <h2 className="text-xl font-semibold text-gray-900 mb-4">
-                Issues ({filteredIssues.length})
+                QA Feedback Issues
               </h2>
-              <IssueTable issues={filteredIssues} availableLabels={availableLabels} />
+              <QAFeedbackTable issues={filteredIssues} availableLabels={availableLabels} />
             </div>
 
+            {/* All Issues Table (for reference) */}
+            {/* <div>
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">
+                All Issues ({filteredIssues.length})
+              </h2>
+              <IssueTable issues={filteredIssues} availableLabels={availableLabels} />
+            </div> */}
           </div>
         </div>
       </div>
     </div>
   );
 }
+

@@ -58,6 +58,13 @@ export interface LinearIssuesResponse {
 }
 
 // Processed issue data for the dashboard
+export interface QAFeedbackCycle {
+  qa_feedback_timestamp: string;      // When QA feedback label was assigned
+  status_change_timestamp: string;    // When status changed (work started)
+  to_ready_to_qa_timestamp: string;    // When back to Ready to QA (fix complete)
+  pattern_type?: "ready_to_qa" | "in_qa"; // Which pattern detected this cycle
+}
+
 export interface ProcessedIssue {
   issue_id: string;
   issue_number: number;
@@ -77,6 +84,13 @@ export interface ProcessedIssue {
   in_review_to_done_timestamp: string | null;
   in_review_to_ready_to_qa_timestamp: string | null;
   ready_to_qa_to_done_timestamp: string | null;
+  qa_feedback_iterations: number;
+  qa_feedback_cycles: QAFeedbackCycle[];
+  // Comparison fields for pattern analysis
+  qa_feedback_iterations_ready_to_qa: number;
+  qa_feedback_iterations_in_qa: number;
+  qa_feedback_cycles_ready_to_qa: QAFeedbackCycle[];
+  qa_feedback_cycles_in_qa: QAFeedbackCycle[];
 }
 
 // Filter types

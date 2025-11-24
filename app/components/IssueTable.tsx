@@ -219,6 +219,12 @@ export default function IssueTable({ issues, availableLabels = [] }: IssueTableP
                 <SortIcon field="labels" />
               </div>
             </th>
+            <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+              QA Iterations
+            </th>
+            <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
+              Avg Time to Fix QA
+            </th>
             <th
               className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
               onClick={() => handleSort("estimate_points")}
@@ -310,6 +316,32 @@ export default function IssueTable({ issues, availableLabels = [] }: IssueTableP
                 ) : (
                   <span className="text-gray-400">-</span>
                 )}
+              </td>
+              <td className="px-4 py-3 whitespace-nowrap text-sm text-center">
+                {issue.qa_feedback_iterations > 0 ? (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-orange-100 text-orange-800">
+                    {issue.qa_feedback_iterations}
+                  </span>
+                ) : (
+                  <span className="text-gray-400">-</span>
+                )}
+              </td>
+              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                {(() => {
+                  const cycles = issue.qa_feedback_cycles || [];
+                  if (cycles.length === 0) return <span className="text-gray-400">-</span>;
+                  
+                  const timesToFix = cycles.map(cycle => {
+                    // Time to fix = from when status changed (work started) to when back to Ready to QA
+                    const start = new Date(cycle.status_change_timestamp);
+                    const end = new Date(cycle.to_ready_to_qa_timestamp);
+                    const diffMs = end.getTime() - start.getTime();
+                    return diffMs / (1000 * 60 * 60 * 24);
+                  });
+                  
+                  const avgTime = timesToFix.reduce((a, b) => a + b, 0) / timesToFix.length;
+                  return `${Math.round(avgTime * 100) / 100} days`;
+                })()}
               </td>
               <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
                 {issue.estimate_points ?? "-"}
