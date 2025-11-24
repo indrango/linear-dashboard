@@ -14,12 +14,14 @@ export default function Dashboard() {
   const [filteredIssues, setFilteredIssues] = useState<ProcessedIssue[]>([]);
   const [availableCycles, setAvailableCycles] = useState<string[]>([]);
   const [availableStatuses, setAvailableStatuses] = useState<string[]>([]);
+  const [availableLabels, setAvailableLabels] = useState<Array<{ name: string; color: string }>>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<Filters>({
     assignees: [],
     statuses: [],
     sprints: [],
+    labels: [],
     dateRange: { start: null, end: null },
     estimateRange: { min: null, max: null },
   });
@@ -37,7 +39,6 @@ export default function Dashboard() {
         const data = await response.json();
 
         // Handle both old format (array) and new format (object with issues and availableCycles)
-        // Handle both old format (array) and new format (object with issues and availableCycles)
         if (Array.isArray(data)) {
           // Backward compatibility: old format
           setIssues(data);
@@ -47,12 +48,26 @@ export default function Dashboard() {
           );
           setAvailableCycles(Array.from(cycles).sort());
           setAvailableStatuses(["Todo", "In Progress", "In Review", "Done"]);
+          const labels = new Set(
+            data.flatMap((i) => i.labels || [])
+          );
+          // For backward compatibility, create label objects with default color
+          setAvailableLabels(
+            Array.from(labels)
+              .map((name) => ({ name, color: "#6B7280" }))
+              .sort((a, b) => a.name.localeCompare(b.name))
+          );
         } else {
-          // New format: object with issues, availableCycles, and availableStatuses
+          // New format: object with issues, availableCycles, availableStatuses, and availableLabels
           setIssues(data.issues || []);
           setFilteredIssues(data.issues || []);
           setAvailableCycles(data.availableCycles || []);
           setAvailableStatuses(data.availableStatuses || []);
+          setAvailableLabels(
+            data.availableLabels?.map((label: { name: string; color: string } | string) =>
+              typeof label === "string" ? { name: label, color: "#6B7280" } : label
+            ) || []
+          );
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to fetch issues");
@@ -88,6 +103,13 @@ export default function Dashboard() {
     if (filters.sprints.length > 0) {
       filtered = filtered.filter(
         (i) => i.sprint && filters.sprints.includes(i.sprint)
+      );
+    }
+
+    // Filter by labels
+    if (filters.labels.length > 0) {
+      filtered = filtered.filter(
+        (i) => i.labels && i.labels.some((label) => filters.labels.includes(label))
       );
     }
 
@@ -184,6 +206,7 @@ export default function Dashboard() {
               availableAssignees={availableAssignees}
               availableStatuses={availableStatuses}
               availableCycles={availableCycles}
+              availableLabels={availableLabels}
             />
           </div>
 
@@ -204,7 +227,7 @@ export default function Dashboard() {
               <h2 className="text-xl font-semibold text-gray-900 mb-4">
                 Issues ({filteredIssues.length})
               </h2>
-              <IssueTable issues={filteredIssues} />
+              <IssueTable issues={filteredIssues} availableLabels={availableLabels} />
             </div>
           </div>
         </div>

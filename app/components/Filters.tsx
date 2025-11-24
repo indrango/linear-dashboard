@@ -6,12 +6,18 @@ import { ChevronDownIcon } from "@heroicons/react/20/solid";
 import { Filters as FiltersType } from "@/app/lib/types";
 import { cn } from "@/app/lib/utils";
 
+interface LabelOption {
+  name: string;
+  color: string;
+}
+
 interface FiltersProps {
   filters: FiltersType;
   onFiltersChange: (filters: FiltersType) => void;
   availableAssignees: string[];
   availableStatuses: string[];
   availableCycles: (string | null)[];
+  availableLabels: LabelOption[];
 }
 
 export default function Filters({
@@ -20,6 +26,7 @@ export default function Filters({
   availableAssignees,
   availableStatuses,
   availableCycles,
+  availableLabels,
 }: FiltersProps) {
   const updateFilter = <K extends keyof FiltersType>(
     key: K,
@@ -35,6 +42,8 @@ export default function Filters({
       updateFilter("statuses", []);
     } else if (key === "sprints") {
       updateFilter("sprints", []);
+    } else if (key === "labels") {
+      updateFilter("labels", []);
     } else if (key === "dateRange") {
       updateFilter("dateRange", { start: null, end: null });
     } else if (key === "estimateRange") {
@@ -47,6 +56,7 @@ export default function Filters({
       assignees: [],
       statuses: [],
       sprints: [],
+      labels: [],
       dateRange: { start: null, end: null },
       estimateRange: { min: null, max: null },
     });
@@ -56,10 +66,145 @@ export default function Filters({
     filters.assignees.length > 0 ||
     filters.statuses.length > 0 ||
     filters.sprints.length > 0 ||
+    filters.labels.length > 0 ||
     filters.dateRange.start !== null ||
     filters.dateRange.end !== null ||
     filters.estimateRange.min !== null ||
     filters.estimateRange.max !== null;
+
+  // Helper function to get contrast color (black or white) based on background
+  const getContrastColor = (hexColor: string): string => {
+    // Remove # if present
+    const hex = hexColor.replace("#", "");
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+    // Calculate luminance
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    return luminance > 0.5 ? "#000000" : "#FFFFFF";
+  };
+
+  // Specialized LabelSelector component with visual badges
+  const LabelSelector = () => {
+    const handleLabelToggle = (labelName: string) => {
+      if (filters.labels.includes(labelName)) {
+        updateFilter("labels", filters.labels.filter((l) => l !== labelName));
+      } else {
+        updateFilter("labels", [...filters.labels, labelName]);
+      }
+    };
+
+    return (
+      <div className="relative">
+        <label className="block text-sm font-medium text-gray-700 mb-1.5">
+          Label
+        </label>
+        <Listbox value={filters.labels} onChange={() => {}} multiple disabled={availableLabels.length === 0}>
+          {({ open }) => (
+            <>
+              <Listbox.Button
+                className={cn(
+                  "relative w-full cursor-default rounded-md border border-gray-300 bg-white py-2 pl-3 pr-10 text-left shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 sm:text-sm min-h-[38px]",
+                  filters.labels.length > 0 && "border-blue-500",
+                  availableLabels.length === 0 && "opacity-50 cursor-not-allowed"
+                )}
+              >
+                <div className="flex items-center gap-2 flex-wrap">
+                  {filters.labels.length === 0 ? (
+                    <span className="text-gray-500">
+                      {availableLabels.length === 0 ? "No labels available" : "All Labels"}
+                    </span>
+                  ) : (
+                    <>
+                      {filters.labels.slice(0, 3).map((labelName) => {
+                        const label = availableLabels.find((l) => l.name === labelName);
+                        return (
+                          <span
+                            key={labelName}
+                            className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
+                            style={{
+                              backgroundColor: label?.color || "#6B7280",
+                              color: label ? getContrastColor(label.color) : "#FFFFFF",
+                            }}
+                          >
+                            {labelName}
+                          </span>
+                        );
+                      })}
+                      {filters.labels.length > 3 && (
+                        <span className="text-gray-500 text-xs">
+                          +{filters.labels.length - 3} more
+                        </span>
+                      )}
+                    </>
+                  )}
+                </div>
+                <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
+                  <ChevronDownIcon
+                    className="h-5 w-5 text-gray-400"
+                    aria-hidden="true"
+                  />
+                </span>
+              </Listbox.Button>
+              {availableLabels.length > 0 && (
+                <Transition
+                  show={open}
+                  as="div"
+                  leave="transition ease-in duration-100"
+                  leaveFrom="opacity-100"
+                  leaveTo="opacity-0"
+                  className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm"
+                >
+                  <Listbox.Options static>
+                    {availableLabels.map((label) => {
+                      const isSelected = filters.labels.includes(label.name);
+                      return (
+                        <div
+                          key={label.name}
+                          onClick={() => handleLabelToggle(label.name)}
+                          className={cn(
+                            "relative cursor-pointer select-none py-2 pl-3 pr-9",
+                            isSelected
+                              ? "bg-blue-100 text-blue-900 border-l-2 border-blue-600"
+                              : "text-gray-900 hover:bg-gray-50"
+                          )}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span
+                              className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
+                              style={{
+                                backgroundColor: label.color,
+                                color: getContrastColor(label.color),
+                              }}
+                            >
+                              {label.name}
+                            </span>
+                          </div>
+                          {isSelected && (
+                            <span className="absolute inset-y-0 right-0 flex items-center pr-4 text-blue-700 font-bold">
+                              ✓
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </Listbox.Options>
+                </Transition>
+              )}
+            </>
+          )}
+        </Listbox>
+        {filters.labels.length > 0 && (
+          <button
+            onClick={() => clearFilter("labels")}
+            className="mt-1 text-xs text-blue-600 hover:text-blue-800"
+          >
+            Clear
+          </button>
+        )}
+      </div>
+    );
+  };
 
   const MultiSelect = ({
     label,
@@ -192,6 +337,8 @@ export default function Filters({
         onChange={(value) => updateFilter("sprints", value)}
         onClear={() => clearFilter("sprints")}
       />
+
+      <LabelSelector />
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1.5">

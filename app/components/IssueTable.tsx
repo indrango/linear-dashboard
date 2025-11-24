@@ -4,8 +4,14 @@ import { useState, useMemo } from "react";
 import { ProcessedIssue } from "@/app/lib/types";
 import { formatDate, formatDateTime, cn } from "@/app/lib/utils";
 
+interface LabelOption {
+  name: string;
+  color: string;
+}
+
 interface IssueTableProps {
   issues: ProcessedIssue[];
+  availableLabels?: LabelOption[];
 }
 
 type SortField =
@@ -13,36 +19,16 @@ type SortField =
   | "issue_title"
   | "assignee"
   | "status"
+  | "labels"
   | "in_progress_to_in_review_days"
   | "in_review_to_ready_to_qa_days"
   | "ready_to_qa_to_done_days"
   | "estimate_points";
 type SortDirection = "asc" | "desc";
 
-export default function IssueTable({ issues }: IssueTableProps) {
+export default function IssueTable({ issues, availableLabels = [] }: IssueTableProps) {
   const [sortField, setSortField] = useState<SortField>("issue_number");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
-
-  // Debug: Check if the new fields exist
-  console.log("=== IssueTable Debug ===");
-  console.log("Total issues:", issues.length);
-  const issuesWithReviewToQA = issues.filter(i => i.in_review_to_ready_to_qa_days !== null && i.in_review_to_ready_to_qa_days !== undefined);
-  const issuesWithQAToDone = issues.filter(i => i.ready_to_qa_to_done_days !== null && i.ready_to_qa_to_done_days !== undefined);
-  console.log("Issues with in_review_to_ready_to_qa_days:", issuesWithReviewToQA.length);
-  console.log("Issues with ready_to_qa_to_done_days:", issuesWithQAToDone.length);
-  if (issuesWithReviewToQA.length > 0) {
-    console.log("Sample issue with review->qa:", {
-      number: issuesWithReviewToQA[0].issue_number,
-      value: issuesWithReviewToQA[0].in_review_to_ready_to_qa_days
-    });
-  }
-  if (issuesWithQAToDone.length > 0) {
-    console.log("Sample issue with qa->done:", {
-      number: issuesWithQAToDone[0].issue_number,
-      value: issuesWithQAToDone[0].ready_to_qa_to_done_days
-    });
-  }
-  console.log("=======================");
 
   const sortedIssues = useMemo(() => {
     const sorted = [...issues].sort((a, b) => {
@@ -82,6 +68,20 @@ export default function IssueTable({ issues }: IssueTableProps) {
           aValue = a.estimate_points ?? -1;
           bValue = b.estimate_points ?? -1;
           break;
+        case "labels":
+          // Sort by number of labels first, then alphabetically by first label name
+          const aLabelCount = a.labels?.length ?? 0;
+          const bLabelCount = b.labels?.length ?? 0;
+          if (aLabelCount !== bLabelCount) {
+            return sortDirection === "asc" 
+              ? aLabelCount - bLabelCount 
+              : bLabelCount - aLabelCount;
+          }
+          const aFirstLabel = a.labels?.[0]?.toLowerCase() ?? "";
+          const bFirstLabel = b.labels?.[0]?.toLowerCase() ?? "";
+          aValue = aFirstLabel;
+          bValue = bFirstLabel;
+          break;
         default:
           return 0;
       }
@@ -104,6 +104,18 @@ export default function IssueTable({ issues }: IssueTableProps) {
       setSortField(field);
       setSortDirection("asc");
     }
+  };
+
+  // Helper function to get contrast color (black or white) based on background
+  const getContrastColor = (hexColor: string): string => {
+    // Remove # if present
+    const hex = hexColor.replace("#", "");
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+    // Calculate luminance
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    return luminance > 0.5 ? "#000000" : "#FFFFFF";
   };
 
   const getStatusColor = (status: string) => {
@@ -200,6 +212,15 @@ export default function IssueTable({ issues }: IssueTableProps) {
             </th>
             <th
               className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+              onClick={() => handleSort("labels")}
+            >
+              <div className="flex items-center">
+                Labels
+                <SortIcon field="labels" />
+              </div>
+            </th>
+            <th
+              className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
               onClick={() => handleSort("estimate_points")}
             >
               <div className="flex items-center">
@@ -266,6 +287,29 @@ export default function IssueTable({ issues }: IssueTableProps) {
                 >
                   {issue.status}
                 </span>
+              </td>
+              <td className="px-4 py-3 text-sm">
+                {issue.labels && issue.labels.length > 0 ? (
+                  <div className="flex flex-wrap gap-1">
+                    {issue.labels.map((labelName) => {
+                      const label = availableLabels.find((l) => l.name === labelName);
+                      return (
+                        <span
+                          key={labelName}
+                          className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
+                          style={{
+                            backgroundColor: label?.color || "#6B7280",
+                            color: label ? getContrastColor(label.color) : "#FFFFFF",
+                          }}
+                        >
+                          {labelName}
+                        </span>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <span className="text-gray-400">-</span>
+                )}
               </td>
               <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
                 {issue.estimate_points ?? "-"}

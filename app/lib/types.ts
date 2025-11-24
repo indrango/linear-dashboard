@@ -20,6 +20,12 @@ export interface LinearCycle {
   number: number;
 }
 
+export interface LinearLabel {
+  id: string;
+  name: string;
+  color: string;
+}
+
 export interface LinearIssue {
   id: string;
   number: number;
@@ -31,6 +37,9 @@ export interface LinearIssue {
   assignee: LinearAssignee | null;
   state: LinearState;
   cycle: LinearCycle | null;
+  labels: {
+    nodes: LinearLabel[];
+  };
   history: {
     nodes: LinearHistoryEntry[];
   };
@@ -58,6 +67,7 @@ export interface ProcessedIssue {
   estimate_points: number | null;
   status: string;
   status_type: string;
+  labels: string[];
   in_progress_to_in_review_days: number | null;
   in_review_to_done_days: number | null;
   in_review_to_ready_to_qa_days: number | null;
@@ -74,6 +84,7 @@ export interface Filters {
   assignees: string[];
   statuses: string[];
   sprints: string[];
+  labels: string[];
   dateRange: {
     start: string | null;
     end: string | null;

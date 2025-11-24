@@ -45,6 +45,13 @@ export async function fetchLinearIssues(
             name
             number
           }
+          labels {
+            nodes {
+              id
+              name
+              color
+            }
+          }
           history(first: 100) {
             nodes {
               updatedAt
@@ -213,6 +220,83 @@ export async function getAllWorkflowStates(apiKey: string): Promise<string[]> {
   return Array.from(new Set(data.data.workflowStates.nodes.map((state: { name: string }) => state.name) as string[])).sort();
 }
 
+export async function getAllLabels(apiKey: string): Promise<Array<{ name: string; color: string }>> {
+  const query = `
+    query IssueLabels($after: String) {
+      issueLabels(
+        first: 100
+        after: $after
+      ) {
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+        nodes {
+          id
+          name
+          color
+        }
+      }
+    }
+  `;
+
+  const allLabels: Array<{ name: string; color: string }> = [];
+  let hasNext = true;
+  let after: string | null = null;
+
+  while (hasNext) {
+    const variables: { after?: string } = after ? { after } : {};
+
+    const response: Response = await fetch(LINEAR_API_URL, {
+      method: "POST",
+      headers: {
+        Authorization: apiKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ query, variables }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Linear API error: ${response.statusText}`);
+    }
+
+    const data: {
+      data?: {
+        issueLabels?: {
+          nodes: Array<{ id: string; name: string; color: string }>;
+          pageInfo: { hasNextPage: boolean; endCursor: string | null };
+        };
+      };
+      errors?: unknown[];
+    } = await response.json();
+
+    if (data.errors) {
+      throw new Error(`GraphQL errors: ${JSON.stringify(data.errors)}`);
+    }
+
+    const labels = data.data?.issueLabels;
+    if (labels) {
+      allLabels.push(
+        ...labels.nodes.map((label: { name: string; color: string }) => ({
+          name: label.name,
+          color: label.color,
+        }))
+      );
+      hasNext = labels.pageInfo.hasNextPage;
+      after = labels.pageInfo.endCursor;
+    } else {
+      hasNext = false;
+    }
+  }
+
+  // Remove duplicates by name, keeping the first occurrence
+  const uniqueLabels = Array.from(
+    new Map(allLabels.map((label) => [label.name, label])).values()
+  ).sort((a, b) => a.name.localeCompare(b.name));
+
+  return uniqueLabels;
+}
+
 export function processLinearIssues(issues: LinearIssue[]): ProcessedIssue[] {
   return issues.map((issue) => {
     const history = issue.history.nodes;
@@ -319,6 +403,9 @@ export function processLinearIssues(issues: LinearIssue[]): ProcessedIssue[] {
     const status = issue.state.name;
     const status_type = issue.state.type;
 
+    // Extract label names
+    const labelNames = issue.labels?.nodes?.map((label) => label.name) || [];
+
     return {
       issue_id: issue.id,
       issue_number: issue.number,
@@ -328,6 +415,7 @@ export function processLinearIssues(issues: LinearIssue[]): ProcessedIssue[] {
       estimate_points: issue.estimate,
       status,
       status_type,
+      labels: labelNames,
       in_progress_to_in_review_days: inProgressToInReviewDays,
       in_review_to_done_days: inReviewToDoneDays,
       in_review_to_ready_to_qa_days: inReviewToReadyToQaDays,

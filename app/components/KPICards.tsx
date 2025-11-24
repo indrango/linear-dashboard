@@ -2,11 +2,17 @@
 
 import { useMemo } from "react";
 import { ProcessedIssue } from "@/app/lib/types";
+import { KPICard } from "./KPICard";
 
 interface KPICardsProps {
   issues: ProcessedIssue[];
 }
 
+/**
+ * KPI Cards component that displays key performance indicators
+ * Calculates and displays averages for issue duration metrics
+ * @param issues - Array of processed issues to calculate metrics from
+ */
 export default function KPICards({ issues }: KPICardsProps) {
   const metrics = useMemo(() => {
     const totalIssues = issues.length;
@@ -49,41 +55,25 @@ export default function KPICards({ issues }: KPICardsProps) {
     };
   }, [issues]);
 
-  const Card = ({
-    title,
-    value,
-    subtitle,
-  }: {
-    title: string;
-    value: string | number;
-    subtitle?: string;
-  }) => (
-    <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
-      <h3 className="text-sm font-medium text-gray-600 mb-1">{title}</h3>
-      <p className="text-3xl font-semibold text-gray-900">{value}</p>
-      {subtitle && <p className="text-xs text-gray-500 mt-1">{subtitle}</p>}
-    </div>
-  );
-
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-      <Card title="Total Issues" value={metrics.totalIssues} />
-      <Card
+      <KPICard title="Total Issues" value={metrics.totalIssues} />
+      <KPICard
         title="Completion Rate"
         value={`${metrics.completionRate}%`}
         subtitle={`${issues.filter((i) => i.status_type === "completed").length} completed`}
       />
-      <Card
+      <KPICard
         title="Avg: In Progress → Review"
         value={metrics.avgInProgressToReview > 0 ? `${metrics.avgInProgressToReview} days` : "N/A"}
         subtitle="Development time"
       />
-      <Card
+      <KPICard
         title="Avg: Review → Ready to QA"
         value={metrics.avgInReviewToReadyToQa > 0 ? `${metrics.avgInReviewToReadyToQa} days` : "N/A"}
         subtitle="PR review time"
       />
-      <Card
+      <KPICard
         title="Avg: Ready to QA → Done"
         value={metrics.avgReadyToQaToDone > 0 ? `${metrics.avgReadyToQaToDone} days` : "N/A"}
         subtitle="QA completion time"
