@@ -86,7 +86,11 @@ export default function Filters({
 
   // Specialized LabelSelector component with visual badges
   const LabelSelector = () => {
-    const handleLabelToggle = (labelName: string) => {
+    const handleLabelToggle = (labelName: string, event: React.MouseEvent) => {
+      // Prevent the dropdown from closing
+      event.preventDefault();
+      event.stopPropagation();
+      
       if (filters.labels.includes(labelName)) {
         updateFilter("labels", filters.labels.filter((l) => l !== labelName));
       } else {
@@ -161,7 +165,7 @@ export default function Filters({
                       return (
                         <div
                           key={label.name}
-                          onClick={() => handleLabelToggle(label.name)}
+                          onClick={(e) => handleLabelToggle(label.name, e)}
                           className={cn(
                             "relative cursor-pointer select-none py-2 pl-3 pr-9",
                             isSelected
@@ -219,7 +223,11 @@ export default function Filters({
     onChange: (value: string[]) => void;
     onClear: () => void;
   }) => {
-    const handleChange = (value: string) => {
+    const handleChange = (value: string, event: React.MouseEvent) => {
+      // Prevent the dropdown from closing
+      event.preventDefault();
+      event.stopPropagation();
+      
       if (selected.includes(value)) {
         onChange(selected.filter((s) => s !== value));
       } else {
@@ -267,7 +275,7 @@ export default function Filters({
                     return (
                       <div
                         key={option}
-                        onClick={() => handleChange(option)}
+                        onClick={(e) => handleChange(option, e)}
                         className={cn(
                           "relative cursor-pointer select-none py-2 pl-3 pr-9",
                           isSelected

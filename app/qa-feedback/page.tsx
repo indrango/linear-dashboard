@@ -105,12 +105,7 @@ export default function QAFeedbackPage() {
             <QAFeedbackKPICards issues={filteredIssues} />
 
             {/* QA Feedback Table */}
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">
-                QA Feedback Issues
-              </h2>
-              <QAFeedbackTable issues={filteredIssues} availableLabels={availableLabels} />
-            </div>
+            <QAFeedbackTable issues={filteredIssues} availableLabels={availableLabels} />
 
             {/* All Issues Table (for reference) */}
             {/* <div>

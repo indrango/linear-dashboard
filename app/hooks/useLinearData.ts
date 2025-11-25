@@ -77,6 +77,9 @@ export function useLinearData() {
   const query = useQuery<LinearDataResponse, Error>({
     queryKey: ["linearData"],
     queryFn: fetchLinearData,
+    refetchInterval: 60000, // Auto-refetch every 60 seconds
+    refetchIntervalInBackground: false, // Only refetch when tab is active
+    refetchOnWindowFocus: 'always', // Always refetch when tab becomes active, even if data is fresh
   });
 
   return {

@@ -115,12 +115,7 @@ export default function Dashboard() {
             <TimelineChart issues={filteredIssues} />
 
             {/* Issues Table */}
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">
-                Issues ({filteredIssues.length})
-              </h2>
-              <IssueTable issues={filteredIssues} availableLabels={availableLabels} />
-            </div>
+            <IssueTable issues={filteredIssues} availableLabels={availableLabels} />
 
           </div>
         </div>
