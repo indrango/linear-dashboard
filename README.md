@@ -16,7 +16,12 @@ A comprehensive dashboard for visualizing and analyzing Linear issue data, featu
   - Status distribution charts
   - Duration analysis by assignee
   - Timeline trends over time
-- **Sortable Tables**: View all issues with sortable columns and detailed information
+- **Advanced Table Features**:
+  - **Sortable Columns**: Multiple sortable columns with visual indicators
+  - **Global Sorting**: Sorting applies to entire dataset before pagination
+  - **Search Functionality**: Debounced search (300ms) across multiple fields
+  - **Pagination**: Configurable items per page (10, 25, 50, 100)
+  - **Cycle Column**: Display and sort by Linear cycles/sprints
 - **Clean Design**: Linear.app-inspired UI with smooth transitions and minimal styling
 
 ## Dashboards
@@ -70,18 +75,25 @@ The dashboard displays five key performance indicators:
 #### Issue Table
 
 The table displays all issues with the following information:
-- Issue number and title
-- Assignee
-- Sprint/Cycle
-- Estimate points
-- Current status
-- Labels
-- Duration metrics:
+- **Issue number and title**: Sortable by number or title
+- **Assignee**: Sortable alphabetically
+- **Status**: Current issue status with color-coded badges, sortable
+- **Cycle**: Linear cycle/sprint name (displays cycle name or "Cycle {number}", shows "-" if no cycle), sortable
+- **Labels**: Color-coded labels with contrast text, sortable by count then alphabetically
+- **Estimate points**: Story points estimate, sortable
+- **Duration metrics** (all sortable):
   - In Progress → In Review (days)
   - In Review → Ready to QA (days)
   - Ready to QA → Done (days)
-  - In Review → Done (days) - for issues that skip Ready to QA
-- Timestamps for key transitions
+- **Timestamps**: Started and Completed dates
+
+**Sorting & Pagination**:
+- All sortable columns support ascending/descending order
+- Sorting is applied to the **entire dataset** before pagination
+- Changing sort automatically resets to page 1
+- Search filtering is applied after sorting
+- Pagination options: 10, 25, 50, or 100 items per page
+- Search is debounced (300ms delay) for performance
 
 ### QA Feedback Dashboard
 
@@ -124,18 +136,29 @@ The system detects QA feedback cycles using two patterns:
 
 The table shows detailed information for each QA feedback issue:
 
-- **Issue Details**: Number, title, assignee, status
-- **Iterations**: Total number of QA feedback cycles
+- **Issue Details**: Number, title, assignee, status (all sortable)
+- **Cycle**: Linear cycle/sprint name, sortable
+- **Iterations**: Total number of QA feedback cycles, sortable
 - **Avg Time to Fix**: Average time to fix across all iterations
   - Formula: `Sum of all iteration fix times / Number of iterations`
+  - Rounded to 1 decimal place
 - **Total Time to Fix**: Sum of all iteration fix times
   - Formula: `Sum of all iteration durations`
+  - Rounded to 1 decimal place
 - **Iteration Details**: Expandable section showing:
   - Iteration number
   - QA Feedback Given timestamp
   - Status Changed timestamp (when work started)
   - Back to Ready to QA timestamp (when fix completed)
-  - Time to Fix for that iteration
+  - Time to Fix for that iteration (rounded to 2 decimal places)
+
+**Sorting & Pagination**:
+- Sortable columns: Issue number, Title, Assignee, Status, Cycle, Iterations
+- Sorting is applied to the **entire dataset** before pagination
+- Changing sort automatically resets to page 1
+- Search filtering is applied after sorting
+- Pagination options: 10, 25, 50, or 100 items per page
+- Search is debounced (300ms delay) for performance
 
 #### Time to Fix Calculation
 
@@ -173,6 +196,14 @@ The system processes Linear issue history to calculate durations between state t
    - Duration: `(To - From) / (1000 × 60 × 60 × 24)` days
 
 All durations are rounded to 2 decimal places.
+
+### Cycle/Sprint Data
+
+The system extracts cycle information from Linear issues:
+- **Cycle Name**: Uses `cycle.name` if available
+- **Cycle Number**: Falls back to `Cycle {cycle.number}` if name is not available
+- **Null Handling**: Displays "-" when no cycle is assigned
+- **Sorting**: Cycle column is sortable alphabetically (null values sorted to end)
 
 ### Data Fetching
 
@@ -231,7 +262,9 @@ linear-dashboard/
 │   │   ├── LastUpdated.tsx        # Data freshness indicator
 │   │   └── Navigation.tsx         # Navigation between dashboards
 │   ├── hooks/
-│   │   └── useLinearData.ts       # TanStack Query hook for data fetching
+│   │   ├── useLinearData.ts       # TanStack Query hook for data fetching
+│   │   ├── useDebounce.ts         # Debounce hook for search input
+│   │   └── useFilteredIssues.ts   # Optimized filtering hook
 │   ├── lib/
 │   │   ├── linear.ts              # Linear API client and data processing
 │   │   ├── types.ts               # TypeScript types
@@ -266,6 +299,43 @@ The application uses TanStack Query for intelligent data caching:
   - Background refetch when data becomes stale and component mounts
 - **Shared Cache**: Both dashboards share the same cache, preventing duplicate API calls when switching tabs
 
+## Table Sorting & Pagination
+
+Both the Linear Dashboard and QA Feedback Dashboard tables implement advanced sorting and pagination:
+
+### Sorting Behavior
+
+1. **Full Dataset Sorting**: Sorting is applied to the entire dataset before any filtering or pagination
+2. **Sort Order**: Click once for ascending (↑), click again for descending (↓)
+3. **Visual Indicators**: 
+   - Active sort shows blue arrow (↑ or ↓)
+   - Inactive sortable columns show gray sort icon
+4. **Null Handling**: Null or missing values are sorted to the end
+5. **Auto Reset**: Changing sort automatically resets to page 1
+
+### Sortable Columns
+
+**Linear Dashboard Table**:
+- Issue Number, Title, Assignee, Status, Cycle, Labels, Estimate Points
+- Duration columns: In Progress → Review, Review → Ready to QA, Ready to QA → Done
+
+**QA Feedback Table**:
+- Issue Number, Title, Assignee, Status, Cycle, Iterations
+
+### Search & Filtering
+
+- **Debounced Search**: 300ms delay prevents excessive filtering
+- **Search Fields**: Title, Assignee, Issue Number, Status, Labels
+- **Filter Order**: Search is applied after sorting, before pagination
+- **Auto Reset**: Changing search resets to page 1
+
+### Pagination
+
+- **Items Per Page**: 10, 25, 50, or 100 options
+- **Page Navigation**: Previous/Next buttons with page counter
+- **Data Flow**: Sort → Filter → Paginate
+- **Consistent Order**: All pages maintain the same sort order
+
 ## Last Updated Indicator
 
 Each dashboard displays a "Last Updated" indicator showing:
@@ -276,6 +346,44 @@ Each dashboard displays a "Last Updated" indicator showing:
   - 🔴 Red dot: Stale (> 30 minutes)
 - **Status Badge**: Shows "Fresh", "Moderate", or "Stale" when applicable
 - **Manual Refresh**: Button to trigger immediate data refresh
+
+## Code Quality & Best Practices
+
+The codebase follows modern React and Next.js best practices:
+
+### Performance Optimizations
+
+- **useMemo for Expensive Computations**: Sorting, filtering, and metric calculations use `useMemo` to prevent unnecessary recalculations
+- **Debounced Search**: Search input is debounced (300ms) to reduce filtering operations
+- **Optimized Filtering**: Custom `useFilteredIssues` hook uses `useMemo` for efficient filtering
+- **Efficient Sorting**: Sorting algorithm handles null values and edge cases properly
+- **Pagination**: Only renders visible items, reducing DOM size
+
+### State Management
+
+- **TanStack Query**: Centralized data fetching and caching
+- **Local State**: Component-level state for UI interactions (sorting, pagination, search)
+- **No Unnecessary Re-renders**: Proper dependency arrays in hooks prevent excessive updates
+
+### Code Structure
+
+- **TypeScript**: Full type safety with interfaces and types
+- **Functional Components**: All components use functional patterns
+- **Custom Hooks**: Reusable logic extracted into hooks (`useDebounce`, `useFilteredIssues`)
+- **Separation of Concerns**: Clear separation between data processing, UI components, and business logic
+
+### Error Handling
+
+- **Date Validation**: All date operations validate dates before processing
+- **Null Safety**: Proper null/undefined checks throughout
+- **Error Boundaries**: ErrorBoundary component for graceful error handling
+- **API Error Handling**: Comprehensive error handling for Linear API calls
+
+### Accessibility
+
+- **Semantic HTML**: Proper use of table elements, headings, and labels
+- **Keyboard Navigation**: Sortable columns are keyboard accessible
+- **Visual Indicators**: Clear visual feedback for sorting, loading, and error states
 
 ## License
 
